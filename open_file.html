@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+	<body>
+		<input type="file" id="file-selector">
+		<script>
+			const fileSelector = document.getElementById('file-selector');
+			fileSelector.addEventListener('change', (event) => {
+				if (event.target.files.length > 0) {
+					readImage(even.target.files[0])
+			});
+			</script>
+	</body>
+</html>
