@@ -1,19 +1,6 @@
 import struct
 from constants import *
 
-# Header is:
-# 1. Number of labels, unsigned short
-#
-# Each label is:
-# 1. Header string length, byte
-# 2. Description string length, short
-# 3. x position, unsigned short
-# 4. y position, unsigned short
-# 5. x width, unsigned short
-# 6. y width, unsigned short
-# 7. Label header, ascii char string
-# 8. Label description, ascii char string
-
 class Label:
 	def __init__(self, x, y, w, h, header, desc):
 		if (

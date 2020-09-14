@@ -1,13 +1,725 @@
 <!DOCTYPE html>
 <html>
+	<head>
+		<title>Image Labeler</title>
+		<style type="text/css">
+			body {
+				overflow: hidden;
+			}
+			
+			#drop_zone {
+				width: 68vw;
+				height: 68vh;
+				margin: 8vh 8vw;
+				padding: 8vh 8vw;
+				background-color: rgba(133, 191, 238, 0.4);
+				border-radius: 7px;
+			}
+			#drop_zone.draggedGood {
+				background-color: rgba(143, 190, 149, 0.4);
+			}
+			#drop_zone.draggedBad {
+				background-color: rgba(238, 133, 133, 0.4);
+			}
+
+			#drop_zone #click {
+				cursor: pointer;
+				color: rgb(0, 0, 0);
+			}
+			#drop_zone #click:hover {
+				color: rgb(70, 70, 70);
+				cursor: pointer;
+			}
+
+			#drop_zone p {
+				text-align: center;
+				color: rgb(70, 70, 70);
+				font-family: Verdana, Tahoma, sans-serif;
+				font-weight: bold;
+			}
+			#dragMsg {
+				font-size: 2.2em;
+			}
+			#clickMsg {
+				font-size: 1.7em;
+			}
+
+			#file_selector {
+				display: none;
+			}
+
+			#display {
+				display: none;
+				position: absolute;
+				top: 0px;
+				left: 0px;
+				width: calc(100vw - 200px);
+				height: 100vh;
+				z-index: 3;
+				background-color: white;
+				padding: 0px 100px;
+			}
+
+			#leftSidebar {
+				position: absolute;
+				left: 0px;
+				top: 0px;
+				width: 80px;
+				padding: 10px;
+			}
+			#leftSidebar h3 {
+				margin: 0px 0px 10px 0px;
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 1em;
+			}
+			#leftSidebar .side-button {
+				margin: 0px 0px 20px 0px;
+				border-radius: 50%;
+				width: 80px;
+				height: 52px;
+				text-align: center;
+				padding-top: 28px;
+				background-color: rgba(133, 191, 238, 0.4);
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 1.1em;
+				font-weight: bold;
+			}
+			#leftSidebar .side-button:hover {
+				background-color: rgba(133, 191, 238, 0.55);
+				cursor: pointer;
+			}
+			#leftSidebar .side-button-selected {
+				margin: 0px 0px 20px 0px;
+				border-radius: 50%;
+				width: 80px;
+				height: 52px;
+				text-align: center;
+				padding-top: 28px;
+				background-color: rgba(133, 191, 238, 0.9);
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 1.1em;
+				font-weight: bold;
+			}
+			#leftSidebar .side-button-selected:hover {
+				background-color: rgba(133, 191, 238, 0.65);
+				cursor: pointer;
+			}
+
+			#rightSidebar {
+				position: absolute;
+				right: 0px;
+				top: 0px;
+				width: 80px;
+				padding: 10px;
+			}
+			#rightSidebar h3 {
+				margin: 0px;
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 1em;
+			}
+			#rightSidebar #selectedWrapper {
+				display: none;
+				margin: 5px 0px 0px 0px;
+				background-color: rgba(133, 191, 238, 0.4);
+				border-radius: 3px;
+				padding: 3px;
+			}
+			#rightSidebar #selectedWrapper:hover {
+				background-color: rgba(133, 191, 238, 0.65);
+				cursor: pointer;
+			}
+			#rightSidebar #selectedWrapper #selected {
+				text-align: center;
+			}
+			
+			#download {
+				position: absolute;
+				bottom: 10px;
+				right: 10px;
+				border-radius: 50%;
+				width: 80px;
+				height: 60px;
+				text-align: center;
+				padding-top: 20px;
+				background-color: rgba(133, 191, 238, 0.4);
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 1.1em;
+				font-weight: bold;
+			}
+			#download:hover {
+				background-color: rgba(133, 191, 238, 0.55);
+				cursor: pointer;
+			}
+
+			#imgWrapper {
+				display: table;
+				margin-left: auto;
+				margin-right: auto;
+				text-align: center;
+				position: relative;
+			}
+			#displayImg {
+				margin: 0px;
+				max-width: 100%;
+				max-height: 100vh;
+			}
+			#display .group {
+				position: absolute;
+				top: 0px;
+				left: 0px;
+				width: 100%;
+				height: 100%;
+				text-align: center;
+			}
+
+			#display .group .label {
+				position: absolute;
+				background-color: rgba(0, 0, 0, 0);
+				border: 2px solid black;
+				border-radius: 2px;
+				box-sizing: border-box;
+				width: 100%;
+				height: 100%;
+				z-index: 5;
+			}
+			#display .group .label:hover {
+				background-color: rgba(0, 0, 0, 0.1);
+			}
+			#display .group .label-content {
+				position: absolute;
+				display: none;
+				width: 100px;
+				top: -1.2em;
+				margin-left: -50px;
+				text-align: center;
+			}
+			#display .group .label-content .popup {
+				display: inline-block;
+				padding: 2px;
+				background-color: rgba(255, 255, 255, 0.8);
+				border-radius: 2px;
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 0.8em;
+			}
+			#display .group:hover .label-content {
+				display: inline-block;
+			}
+			#display .group-selected .label-content {
+				display: inline-block;
+			}
+		</style>
+	</head>
 	<body>
-		<input type="file" id="file-selector">
-		<script>
-			const fileSelector = document.getElementById('file-selector');
-			fileSelector.addEventListener('change', (event) => {
-				if (event.target.files.length > 0) {
-					readImage(even.target.files[0])
-			});
-			</script>
+		<input type="file" id="file_selector" accept=".jpg, .jpeg, .png" onchange="onChange(event);">
+		<div id="drop_zone" accept=".jpg, .jpeg" 
+			ondragleave="onDragEnd(event);" 
+			ondragend="onDragEnd(event);"
+			ondrop="onDrop(event);" 
+			ondragenter="onDragEnter(event);"
+			ondragover="event.preventDefault();"
+		>
+			<p id="dragMsg">Drag a .jpg, .jpeg, or .png file here.</p>
+			<p id="clickMsg">(Or <a id="click" onclick="onClick(event);">click here</a> to select it.)</p>
+		</div>
+
+		<div id="display">
+			<div id="leftSidebar">
+				<h3>Tool:</h3>
+				<div class="side-button" id="add">Add</div>
+				<div class="side-button" id="move">Move</div>
+				<div class="side-button" id="resize">Resize</div>
+				<div class="side-button" id="delete">Delete</div>
+			</div>
+			<div id="imgWrapper">
+				<img id="displayImg">
+			</div>
+			<div id="rightSidebar">
+				<h3>Selected:</h3>
+				<div id="selectedWrapper">
+					<h3 id="selected"></h3>
+				</div>
+			</div>
+			<div class="side-button" id="download">Down load</div>
+		</div>
+
+		<script type="text/javascript">
+
+			const LABEL_MARKER = parseInt("0xFFE5");
+			const SOS_MARKER = parseInt("0xFFDA");
+			const JPEG_HEADER = parseInt("0xFFD8");
+			const ZERO_HEADERS_LOWER = parseInt("0xFFD0");
+			const ZERO_HEADERS_UPPER = parseInt("0xFFD7");
+			const ENDIAN = ">";
+			const UNSIGNED_SHORT_MAX = 65536;
+
+			const fileSelector = document.getElementById("file_selector");
+			const dropZone = document.getElementById("drop_zone");
+			const displayDiv = document.getElementById("display");
+			const displayImg = document.getElementById("displayImg");
+			const imgWrapper = document.getElementById("imgWrapper");
+			const selectedNameWrapper = document.getElementById("selectedWrapper");
+
+			const downloadButton = document.getElementById("download");
+
+			const addButton = document.getElementById("add");
+			const moveButton = document.getElementById("move");
+			const resizeButton = document.getElementById("resize");
+			const deleteButton = document.getElementById("delete");
+			let selectedButton = null;
+
+		 	// big endian conversions
+			function bytesToShort(b0, b1) {
+				let a = (b0 << 8) + b1;
+				return a;
+			}
+			function shortByte0(short) { 
+				return (short >> 8) & 255;
+			}
+			function shortByte1(short) {
+				return short & 255;
+			}
+			function writeShort(buffer, index, short) {
+				buffer[index] = shortByte0(short);
+				buffer[index + 1] = shortByte1(short);
+			}
+
+			function validItems(items) {
+				item = items[0]
+				if (item.kind == "file" && (item.type == "image/jpeg" || item.type == "image/png")) {
+					return true;
+				}
+				return false;
+			}
+
+			function onChange(event) {
+				dropZone.className = "";
+				if (event.target.files.length == 1) {
+					readImage(event.target.files[0])
+				}
+			}
+			function onClick(event) {
+				fileSelector.click();
+			}
+
+			function onDrop(event) {
+				event.preventDefault();
+				dropZone.className = "";
+				items = event.dataTransfer.items
+				if (items && items.length == 1 && validItems(items)) {					
+					readImage(event.dataTransfer.items[0].getAsFile());
+				}
+			}	
+			function onDragEnter(event) {
+				event.preventDefault();
+				if (!event.dataTransfer.items || event.dataTransfer.items.length != 1) {
+					return;	
+				}
+				if (validItems(event.dataTransfer.items)) {
+					dropZone.className = "draggedGood";
+				} else {
+					dropZone.className = "draggedBad";
+				}
+			}
+			function onDragEnd(event) {
+				event.preventDefault();
+				dropZone.className = "";
+			}
+
+			downloadButton.onclick = downloadImage;
+			function downloadImage(event) {
+				let labelIndex = -1;
+				let labelSize = 0;
+				let data = new Uint8Array(dataBuffer, 0, 4);
+				let bufferIndex = 4;
+
+				marker = bytesToShort(data[2], data[3]);
+				while (marker != SOS_MARKER) {
+					if (marker < ZERO_HEADERS_LOWER || marker > ZERO_HEADERS_UPPER) {
+						data = new Uint8Array(dataBuffer, bufferIndex, 2);
+						let size = bytesToShort(data[0], data[1]);
+						if (marker == LABEL_MARKER) {
+							labelIndex = bufferIndex;
+							labelSize = size;
+							break;
+						} else {
+							bufferIndex += size;
+						}
+					}
+					data = new Uint8Array(dataBuffer, bufferIndex, 2);
+					marker = bytesToShort(data[0], data[1])
+					bufferIndex += 2;
+				}
+
+				let newDBLength = dataBuffer.byteLength - labelSize;
+				if (labelIndex == -1) {
+					newDBLength += 6; // 2 bytes for marker
+				}
+				let labelByteLength = 4; // 2 bytes for size, 2 bytes for label header
+				for (var i = 0; i < labels.length; i++) {
+					labelByteLength += 11;
+					labelByteLength += labels[i].header.length;
+					labelByteLength += labels[i].desc.length;
+				}
+				newDBLength += labelByteLength;
+
+				const newDB = new ArrayBuffer(newDBLength);
+				const newDBView = new Uint8Array(newDB);
+				newDBView.set(new Uint8Array(dataBuffer, 0, 2), 0);
+
+				writeShort(newDBView, 2, LABEL_MARKER);
+				writeShort(newDBView, 4, labelByteLength);
+				writeShort(newDBView, 6, labels.length);
+
+				let nbI = 8; // new dataBuffer index
+				for (var i = 0; i < labels.length; i++) {
+					let label = labels[i];
+					newDBView[nbI] = label.header.length;
+					writeShort(newDBView, nbI+1, label.desc.length);
+					writeShort(newDBView, nbI+3, label.x);
+					writeShort(newDBView, nbI+5, label.y);
+					writeShort(newDBView, nbI+7, label.w);
+					writeShort(newDBView, nbI+9, label.h);
+					for (var j = 0; j < label.header.length; j++) {
+						newDBView[nbI+11 + j] = label.header.charCodeAt(j);
+					}
+					for (var j = 0; j < label.desc.length; j++) {
+						newDBView[nbI+11+label.header.length + j] = label.desc.charCodeAt(j);
+					}
+					nbI += 11 + label.header.length + label.desc.length;
+				}
+
+				if (labelIndex > 4) { // 4 is 2 jpg bytes + 2 label header bytes
+					let beforeBytes = new Uint8Array(dataBuffer, 4, labelIndex - 4);
+					newDBView.set(beforeBytes, nbI);
+					nbI += labelIndex - 4;
+				}
+
+				let remainingBytes = new Uint8Array(
+					dataBuffer, 
+					labelIndex + labelSize, 
+					dataBuffer.byteLength - labelIndex - labelSize
+				);
+				newDBView.set(remainingBytes, nbI);
+
+				let dbBlob = new Blob([newDB], {type: filetype});
+				let link = document.createElement("a");
+				link.href = window.URL.createObjectURL(dbBlob);
+				link.download = filename;
+				link.click();
+			}
+
+			function readImage(imgFile) {
+				filename = imgFile.name;
+				filetype = imgFile.type;
+
+				const bufferReader = new FileReader();
+				const dataUrlReader = new FileReader();
+
+				dataUrlReader.onerror  = error => {
+					console.log(error);
+					alert("Sorry, an error occured when reading the file");
+				}
+				bufferReader.onerror = dataUrlReader.onerror;
+
+				dataUrlReader.onload = event => {
+					displayImg.src = event.target.result;
+					displayDiv.style.display = "inline";
+					displayLabels();
+				}
+				bufferReader.onload = event => {
+					dataBuffer = event.target.result;
+					let data = new Uint8Array(dataBuffer, 0, 4);
+					let bufferIndex = 4;
+					
+					if (bytesToShort(data[0], data[1]) != JPEG_HEADER) { // have to do the conversion myself since it's in big endian :/
+						alert("Sorry, file is not a properly formatted jpeg");
+						return;
+					}
+
+					labels.length = 0;
+
+					marker = bytesToShort(data[2], data[3]);
+					while (marker != SOS_MARKER) {
+						if (marker < ZERO_HEADERS_LOWER || marker > ZERO_HEADERS_UPPER) {
+							data = new Uint8Array(dataBuffer, bufferIndex, 2);
+							let size = bytesToShort(data[0], data[1]);
+
+							if (marker == LABEL_MARKER) {
+								data = new Uint8Array(dataBuffer, bufferIndex + 2, size - 2); // short included in size
+								let numLabels = bytesToShort(data[0], data[1]);
+								let index = 2;
+								for (var i = 0; i < numLabels; i++) {
+									let headerLen = data[index];
+									let descLen = bytesToShort(data[index+1], data[index+2]);
+									let x = bytesToShort(data[index+3], data[index+4]);
+									let y = bytesToShort(data[index+5], data[index+6]);
+									let w = bytesToShort(data[index+7], data[index+8]);
+									let h = bytesToShort(data[index+9], data[index+10]);
+									let header = Array.from(data.slice(index+11, index+11+headerLen))
+														.map(i => String.fromCharCode(i)).join("");
+									let desc = Array.from(data.slice(index+11+headerLen, index+11+headerLen+descLen))
+														.map(i => String.fromCharCode(i)).join("");
+
+									labels.push({
+										x: x,
+										y: y,
+										w: w,
+										h: h,
+										header: header,
+										desc: desc
+									});
+
+									index += 11+headerLen+descLen;
+								}
+
+								break;
+							} else {
+								bufferIndex += size;
+							}
+						}
+						data = new Uint8Array(dataBuffer, bufferIndex, 2);
+						marker = bytesToShort(data[0], data[1])
+						bufferIndex += 2;
+					}
+					console.log("Done.");
+					canDisplay = true;
+					displayLabels();
+				}
+
+				console.log("Parsing image data...");
+				dataUrlReader.readAsDataURL(imgFile);
+				bufferReader.readAsArrayBuffer(imgFile);
+			}
+
+			let filename = "";
+			let filetype = "";
+			let canDisplay = false;
+			let labels = [];
+			let dataBuffer = null;
+			let defaultSize = null;
+			function displayLabels() {
+				if (displayImg.src == "" || !canDisplay) {
+					return;
+				}
+				defaultSize = {w: displayImg.naturalWidth * 0.05, h: displayImg.naturalHeight * 0.05};
+				canDisplay = false;
+				let domLabels = imgWrapper.getElementsByClassName("label");
+				while (domLabels[0]) {
+					domLabels[0].parentNode.removeChild(domLabels[0]);
+				}
+				for (var i = 0; i < labels.length; i++) {
+					imgWrapper.appendChild(createLabel(i));
+				}
+			}
+
+			function createLabel(index) {
+				let group = document.createElement("div");
+				group.className = "group";
+				group.id = index.toString();
+				group.style.left = (labels[index].x * 100 / displayImg.naturalWidth) + "%";
+				group.style.top = (labels[index].y * 100 / displayImg.naturalHeight) + "%";
+				group.style.width = (labels[index].w * 100 / displayImg.naturalWidth) + "%";
+				group.style.height = (labels[index].h * 100 / displayImg.naturalHeight) + "%";
+				group.onclick = event => selectLabel(group, event);
+
+				let box = document.createElement("div");
+				box.className = "label";
+
+				let box_content = document.createElement("div");
+				box_content.className = "label-content";
+
+				let popup = document.createElement("div");
+				popup.className = "popup";
+				popup.innerText = labels[index].header;
+				box_content.appendChild(popup);
+
+				group.appendChild(box);
+				group.appendChild(box_content);
+				return group;
+			}
+
+			function selectButton(button) {
+				button.className = "side-button-selected";
+				if (selectedButton != null) {
+					selectedButton.className = "side-button";
+				}
+				if (selectedButton == button) {
+					selectedButton = null;
+				} else {
+					selectedButton = button;
+				}
+			}
+
+			addButton.onclick = event => {
+				let header = prompt("Enter header:");
+				if (header == null || header.length == 0) {
+					header = " "; // avoid possible issues with zero length string
+				}
+				labels.push({
+					x: 0, y: 0, 
+					w: defaultSize.w, h: defaultSize.h, 
+					header: header, desc: " "
+				});
+				let newLabel = createLabel(labels.length - 1);
+				imgWrapper.appendChild(newLabel);
+				selectLabel(newLabel, null);
+				selectButton(moveButton);
+			};
+
+			moveButton.onclick = event => selectButton(moveButton);
+			resizeButton.onclick = event => selectButton(resizeButton);
+			deleteButton.onclick = event => selectButton(deleteButton);
+
+			let selectedLabel = null;
+			function selectLabel(label, event) {
+				if (event != null) {
+					event.stopPropagation();
+				}
+
+				if (selectedButton == deleteButton) {
+					let shouldDelete = confirm("Delete " + labels[parseInt(label.id)].header + "?");
+					if (shouldDelete) {
+						const index = parseInt(label.id);
+						const parentNode = label.parentNode;
+
+						labels.splice(index, 1); // remove from data
+						label.parentNode.removeChild(label); // remove from DOM
+
+						const labelElements = parentNode.children;
+						for (var i = 0; i < labelElements.length; i++) {
+							if (labelElements[i].className != "group") {
+								continue
+							}
+							let j = parseInt(labelElements[i].id);
+							if (j > index) { // update ID's to shift back by 1
+								labelElements[i].id = (j - 1).toString();
+							}
+						}
+
+						selectedLabel = null;
+						resizeAnchor = null;
+						selectedNameWrapper.style.display = "none";
+					}
+				} else if (selectedLabel == label || (selectedLabel != null && selectedButton != null)) {
+					selectedLabel = null;
+					resizeAnchor = null;
+					selectedNameWrapper.style.display = "none";
+					label.className = "group";
+				} else {
+					if (selectedLabel != null) {
+						selectedLabel.className = "group";
+					}
+					selectedNameWrapper.children[0].innerText = labels[parseInt(label.id)].header;
+					selectedNameWrapper.style.display = "block";
+					label.className = "group group-selected";
+					selectedLabel = label;
+				}
+			}
+
+			selectedNameWrapper.onclick = event => {
+				let newDesc = prompt("Description of " + labels[selectedLabel.id].header + ":", labels[selectedLabel.id].desc);
+				if (newDesc != null) {
+					if (newDesc.length == 0) {
+						newDesc = " ";
+					}
+					labels[selectedLabel.id].desc = newDesc;
+				}
+			}
+
+			imgWrapper.onclick = event => {
+				if (selectedLabel != null && selectedButton != null) {
+					selectLabel(selectedLabel, null);
+				}
+			}
+
+			let resizeAnchor = null;
+			imgWrapper.onmousemove = event => {
+				let imgBox = imgWrapper.getBoundingClientRect();
+				let mx = event.clientX - imgBox.left;
+				let my = event.clientY - imgBox.top;
+
+				mx = Math.max(0, mx);
+				my = Math.max(0, my);
+				mx = Math.min(mx, imgWrapper.offsetWidth);
+				my = Math.min(my, imgWrapper.offsetHeight);
+
+				if (selectedLabel != null && selectedButton == moveButton) {
+
+					let percentX = mx / imgWrapper.offsetWidth * 100;
+					let percentY = my / imgWrapper.offsetHeight * 100;
+					selectedLabel.style.left = percentX.toString() + "%";
+					selectedLabel.style.top = percentY.toString() + "%";
+					labels[parseInt(selectedLabel.id)].x = percentX / 100 * displayImg.naturalWidth;
+					labels[parseInt(selectedLabel.id)].y = percentY / 100 * displayImg.naturalHeight;
+
+				} else if (selectedLabel != null && selectedButton == resizeButton) {
+
+					if (resizeAnchor == null) {
+						let labelBox = selectedLabel.getBoundingClientRect();
+						resizeAnchor = {
+							x: labelBox.left - imgBox.left,
+							y: labelBox.top - imgBox.top
+						};
+					}
+
+					if (mx > resizeAnchor.x) {
+						let deltaXPercent = (mx - resizeAnchor.x) / imgWrapper.offsetWidth * 100;
+						selectedLabel.style.width = deltaXPercent.toString() + "%";
+						labels[parseInt(selectedLabel.id)].w = deltaXPercent / 100 * displayImg.naturalWidth;
+					} else {
+						let percentX = mx / imgWrapper.offsetWidth * 100;
+						let deltaXPercent = (resizeAnchor.x - mx) / imgWrapper.offsetWidth * 100;
+						selectedLabel.style.left = percentX.toString() + "%";
+						selectedLabel.style.width = deltaXPercent.toString() + "%";
+						labels[parseInt(selectedLabel.id)].x = percentX / 100 * displayImg.naturalWidth;
+						labels[parseInt(selectedLabel.id)].w = deltaXPercent / 100 * displayImg.naturalWidth;
+					}
+
+					if (my > resizeAnchor.y) {
+						let deltaYPercent = (my - resizeAnchor.y) / imgWrapper.offsetHeight * 100;
+						selectedLabel.style.height = deltaYPercent.toString() + "%";
+						labels[parseInt(selectedLabel.id)].h = deltaYPercent / 100 * displayImg.naturalHeight;
+					} else {
+						let percentY = my / imgWrapper.offsetHeight * 100;
+						let deltaYPercent = (resizeAnchor.y - my) / imgWrapper.offsetHeight * 100;
+						selectedLabel.style.top = percentY.toString() + "%";
+						selectedLabel.style.height = deltaYPercent.toString() + "%";
+						labels[parseInt(selectedLabel.id)].y = percentY / 100 * displayImg.naturalHeight;
+						labels[parseInt(selectedLabel.id)].h = deltaYPercent / 100 * displayImg.naturalHeight;
+					}
+
+				}
+			}
+
+			document.onkeydown = event => {
+				if (selectedLabel != null && event.keyCode == 27) {
+					selectLabel(selectedLabel);
+				}
+				if (event.keyCode == 65) {
+					if (selectedLabel != null) {
+						selectLabel(selectedLabel);
+					}
+					if (selectedButton != null) {
+						selectButton(selectedButton);
+					}
+					addButton.click();
+				} else if (event.keyCode == 77) {
+					selectButton(moveButton);
+				} else if (event.keyCode == 82) {
+					selectButton(resizeButton);
+				} else if (event.keyCode == 68) {
+					if (selectedLabel != null) {
+						selectLabel(selectedLabel);
+					}
+					selectButton(deleteButton);
+				} else if (event.keyCode == 8) {
+					if (selectedLabel != null) {
+						selectButton(deleteButton);
+						selectLabel(selectedLabel);
+					}
+				}
+			}
+
+		</script>
 	</body>
 </html>
