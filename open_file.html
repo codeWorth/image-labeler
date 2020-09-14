@@ -28,9 +28,7 @@
 			}
 			#drop_zone #click:hover {
 				color: rgb(70, 70, 70);
-				cursor: pointer;
 			}
-
 			#drop_zone p {
 				text-align: center;
 				color: rgb(70, 70, 70);
@@ -43,9 +41,45 @@
 			#clickMsg {
 				font-size: 1.7em;
 			}
-
 			#file_selector {
 				display: none;
+			}
+
+			#selectSaveWindow {
+				z-index: 10;
+				display: none;
+				position: absolute;
+				width: 100vw;
+				height: 100vh;
+				top: 0px;
+				left: 0px;
+				background-color: rgba(20, 20,  20, 0.8);
+			}
+			#selectSaveWindow ul {
+				width: 60vw;
+				height: calc(80vh - 20px);
+				margin: 10vh 20vw;
+				background-color: white;
+				border-radius: 10px;
+				list-style: none;
+				padding: 10px 0px;
+			}
+			#selectSaveWindow li {
+				margin: 0px;
+				padding: 13px 20px 8px 20px;
+				border-bottom: 1px solid black;
+				height: 50px;
+				font-size: 2.5em;
+				font-family: Verdana, Tahoma, sans-serif;
+				background-color: white;
+			}
+			#selectSaveWindow li:first-child {
+				border-top: 1px solid black;
+				font-weight: bold;
+			}
+			#selectSaveWindow li:hover:not(:first-child) {
+				background-color: rgb(235, 235, 235);
+				cursor: pointer;
 			}
 
 			#display {
@@ -150,6 +184,24 @@
 				background-color: rgba(133, 191, 238, 0.55);
 				cursor: pointer;
 			}
+			#openSaves {
+				position: absolute;
+				bottom: 100px;
+				right: 10px;
+				border-radius: 50%;
+				width: 80px;
+				height: 60px;
+				text-align: center;
+				padding-top: 20px;
+				background-color: rgba(133, 191, 238, 0.4);
+				font-family: Verdana, Tahoma, sans-serif;
+				font-size: 1.1em;
+				font-weight: bold;
+			}
+			#openSaves:hover {
+				background-color: rgba(133, 191, 238, 0.55);
+				cursor: pointer;
+			}
 
 			#imgWrapper {
 				display: table;
@@ -221,6 +273,11 @@
 			<p id="dragMsg">Drag a .jpg, .jpeg, or .png file here.</p>
 			<p id="clickMsg">(Or <a id="click" onclick="onClick(event);">click here</a> to select it.)</p>
 		</div>
+		<div id="selectSaveWindow" onclick="saveWindow.style.display='none';">
+			<ul id="saveList" onclick="event.stopPropagation();">
+				<li>Saves:</li>
+			</ul>
+		</div>
 
 		<div id="display">
 			<div id="leftSidebar">
@@ -239,7 +296,8 @@
 					<h3 id="selected"></h3>
 				</div>
 			</div>
-			<div class="side-button" id="download">Down load</div>
+			<div id="openSaves" onclick="showSaveWindow(event);">Open saves</div>
+			<div id="download">Down load</div>
 		</div>
 
 		<script type="text/javascript">
@@ -260,6 +318,8 @@
 			const selectedNameWrapper = document.getElementById("selectedWrapper");
 
 			const downloadButton = document.getElementById("download");
+			const saveList = document.getElementById("saveList");
+			const saveWindow = document.getElementById("selectSaveWindow")
 
 			const addButton = document.getElementById("add");
 			const moveButton = document.getElementById("move");
@@ -324,6 +384,111 @@
 				event.preventDefault();
 				dropZone.className = "";
 			}
+			function onClickSaves(event) {
+				saveWindow.style.display = "block";
+			}
+			function showSaveWindow(event) {
+				if (localStorage == null) {
+					return 
+				}
+
+				let listItems = saveList.children;
+				for (let i = listItems.length - 1; i >= 0; i--) {
+					saveList.removeChild(listItems[i]);
+				}
+
+				let elem = document.createElement("li");
+				elem.innerText = "Saves:";
+				saveList.appendChild(elem);
+
+				for (let i = 0; i < localStorage.length; i++) {
+					let key = localStorage.key(i);
+					if (key.substring(key.length - 5, key.length) == "_time") {
+						let listElem = document.createElement("li");
+						listElem.innerText = key.substring(0, key.length - 5);
+						listElem.onclick = event => openSave(listElem.innerText);
+						saveList.appendChild(listElem);
+					}
+				}
+				saveWindow.style.display='block';
+			}
+
+			let localStorage = null;
+			try {
+				localStorage = window.localStorage;
+			} catch(e) {
+				console.log("Unable to acces local storage");
+				console.log(e);
+			}
+
+			function removeOldestStore() {
+				if (localStorage == null) {
+					return;
+				}
+
+				let minKey = "";
+				let minTime = -1;
+				for (let i = 0; i < localStorage.length; i++) {
+					let key = localStorage.key(i);
+					if (key.substring(key.length - 5, key.length) == "_time") {
+						let time = localStorage.getItem(key);
+						if (minTime == -1 || time < minTime) {
+							minTime = time;
+							minKey = key.substring(0, key.length - 5);
+						}
+					}
+				}
+
+				localStorage.removeItem(minKey);
+				localStorage.removeItem(minKey + "_time");
+				localStorage.removeItem(minKey + "_type");
+			}
+
+			function openSave(key) {
+				if (localStorage == null || localStorage.getItem(key + "_time") == null) {
+					return;
+				}
+
+				labels = JSON.parse(localStorage.getItem(key));
+				canDisplay = true;
+				displayLabels();
+				saveWindow.style.display = "none";
+			}
+
+			function storeLabels() {
+				if (localStorage == null || filename.length == 0 || filetype.length == 0) {
+					return;
+				}
+
+				for (let i = 0; i < labels.length; i++) {
+					let label = labels[i];
+					label.x = Math.floor(label.x);
+					label.y = Math.floor(label.y);
+					label.w = Math.floor(label.w);
+					label.h = Math.floor(label.h);
+				}
+				let stringified = JSON.stringify(labels);
+				let done = false;
+
+				let i = 0;
+				while (!done && i < 5) {
+					try {
+						localStorage.setItem(filename + "_time", Date.now().toString());
+						localStorage.setItem(filename + "_type", filetype);
+						localStorage.setItem(filename, stringified);
+						done = true;
+					} catch (e) {
+						if (e.name == "QuotaExceededError" || e.name == "NS_ERROR_DOM_QUOTE_REACHED" || e.name == "QUOTA_EXCEEDED_ERR") {
+							removeOldestStore();
+						} else {
+							console.log("Unknown localStorage error:");
+							console.log(e);
+							alert("Unknown localStorage error, check console for more info.");
+						}
+					}
+					i += 1;
+				}
+			}
 
 			downloadButton.onclick = downloadImage;
 			function downloadImage(event) {
@@ -369,7 +534,6 @@
 				writeShort(newDBView, 2, LABEL_MARKER);
 				writeShort(newDBView, 4, labelByteLength);
 				writeShort(newDBView, 6, labels.length);
-
 				let nbI = 8; // new dataBuffer index
 				for (var i = 0; i < labels.length; i++) {
 					let label = labels[i];
@@ -563,6 +727,8 @@
 					w: defaultSize.w, h: defaultSize.h, 
 					header: header, desc: " "
 				});
+				storeLabels();
+
 				let newLabel = createLabel(labels.length - 1);
 				imgWrapper.appendChild(newLabel);
 				selectLabel(newLabel, null);
@@ -587,6 +753,7 @@
 
 						labels.splice(index, 1); // remove from data
 						label.parentNode.removeChild(label); // remove from DOM
+						storeLabels(); // save new labels
 
 						const labelElements = parentNode.children;
 						for (var i = 0; i < labelElements.length; i++) {
@@ -601,14 +768,19 @@
 
 						selectedLabel = null;
 						resizeAnchor = null;
+						moveOffset = null;
 						selectedNameWrapper.style.display = "none";
 					}
 				} else if (selectedLabel == label || (selectedLabel != null && selectedButton != null)) {
+					if (selectedLabel != null && selectedButton != null) {
+						storeLabels();
+					}
 					selectedLabel = null;
 					resizeAnchor = null;
+					moveOffset = null;
 					selectedNameWrapper.style.display = "none";
 					label.className = "group";
-				} else {
+				}  else {
 					if (selectedLabel != null) {
 						selectedLabel.className = "group";
 					}
@@ -626,6 +798,7 @@
 						newDesc = " ";
 					}
 					labels[selectedLabel.id].desc = newDesc;
+					storeLabels();
 				}
 			}
 
@@ -636,10 +809,23 @@
 			}
 
 			let resizeAnchor = null;
+			let moveOffset = null;
 			imgWrapper.onmousemove = event => {
 				let imgBox = imgWrapper.getBoundingClientRect();
 				let mx = event.clientX - imgBox.left;
 				let my = event.clientY - imgBox.top;
+
+				if (selectedLabel != null && selectedButton == moveButton) {
+					if (moveOffset == null) {
+						let labelBox = selectedLabel.getBoundingClientRect();
+						moveOffset = {
+							x: labelBox.left - imgBox.left - mx,
+							y: labelBox.top - imgBox.top - my
+						};
+					}
+					mx += moveOffset.x;
+					my += moveOffset.y;
+				}
 
 				mx = Math.max(0, mx);
 				my = Math.max(0, my);
