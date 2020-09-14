@@ -552,7 +552,10 @@
 
 			addButton.onclick = event => {
 				let header = prompt("Enter header:");
-				if (header == null || header.length == 0) {
+				if (header == null) {
+					return;
+				}
+				if (header.length == 0) {
 					header = " "; // avoid possible issues with zero length string
 				}
 				labels.push({
