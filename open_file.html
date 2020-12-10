@@ -262,7 +262,7 @@
 		</style>
 	</head>
 	<body>
-		<input type="file" id="file_selector" accept=".jpg, .jpeg, .png" onchange="onChange(event);">
+		<input type="file" id="file_selector" accept=".jpg, .jpeg" onchange="onChange(event);">
 		<div id="drop_zone" accept=".jpg, .jpeg" 
 			ondragleave="onDragEnd(event);" 
 			ondragend="onDragEnd(event);"
@@ -270,7 +270,7 @@
 			ondragenter="onDragEnter(event);"
 			ondragover="event.preventDefault();"
 		>
-			<p id="dragMsg">Drag a .jpg, .jpeg, or .png file here.</p>
+			<p id="dragMsg">Drag a .jpg or .jpeg file here.</p>
 			<p id="clickMsg">(Or <a id="click" onclick="onClick(event);">click here</a> to select it.)</p>
 		</div>
 		<div id="selectSaveWindow" onclick="saveWindow.style.display='none';">
@@ -302,7 +302,8 @@
 
 		<script type="text/javascript">
 
-			const LABEL_MARKER = parseInt("0xFFE5");
+			const LABEL_MARKER = parseInt("0xFFFE");
+			const CHECK_CODE = parseInt("0x9460"); // randomly generated code to reduce interpreting random data as labels
 			const SOS_MARKER = parseInt("0xFFDA");
 			const JPEG_HEADER = parseInt("0xFFD8");
 			const ZERO_HEADERS_LOWER = parseInt("0xFFD0");
@@ -345,7 +346,8 @@
 
 			function validItems(items) {
 				item = items[0]
-				if (item.kind == "file" && (item.type == "image/jpeg" || item.type == "image/png")) {
+				// if (item.kind == "file" && (item.type == "image/jpeg" || item.type == "image/png")) {
+				if (item.kind == "file" && (item.type == "image/jpeg")) {
 					return true;
 				}
 				return false;
@@ -492,19 +494,26 @@
 
 			downloadButton.onclick = downloadImage;
 			function downloadImage(event) {
-				let labelIndex = -1;
+				if (labels.length === 0) {
+					alert("No labels to download.")
+					return;
+				}
+
+				let labelIndex = 2;
 				let labelSize = 0;
-				let data = new Uint8Array(dataBuffer, 0, 4);
+				let data = new Uint8Array(dataBuffer, 0, 4); // get first 2 markers, 1st one is assumed to be FFD8 (aka Start Of Image)
 				let bufferIndex = 4;
 
-				marker = bytesToShort(data[2], data[3]);
+				marker = bytesToShort(data[2], data[3]); // look at marker after SOI
 				while (marker != SOS_MARKER) {
 					if (marker < ZERO_HEADERS_LOWER || marker > ZERO_HEADERS_UPPER) {
 						data = new Uint8Array(dataBuffer, bufferIndex, 2);
 						let size = bytesToShort(data[0], data[1]);
 						if (marker == LABEL_MARKER) {
 							labelIndex = bufferIndex;
-							labelSize = size;
+							// size does NOT include the 2 bytes of the marker, but DOES include the 2 bytes that define size itself
+							// we add 2 to account for the marker's 2 bytes
+							labelSize = size + 2; 
 							break;
 						} else {
 							bufferIndex += size;
@@ -515,26 +524,24 @@
 					bufferIndex += 2;
 				}
 
-				let newDBLength = dataBuffer.byteLength - labelSize;
-				if (labelIndex == -1) {
-					newDBLength += 6; // 2 bytes for marker
-				}
-				let labelByteLength = 4; // 2 bytes for size, 2 bytes for label header
+				let newDBLength = dataBuffer.byteLength - labelSize; // we want to cut the old label info out (if any existed)
+				let labelByteLength = 6; // 2 bytes for check code, 2 bytes for byteLength, 2 byes for labels.length
 				for (var i = 0; i < labels.length; i++) {
 					labelByteLength += 11;
 					labelByteLength += labels[i].header.length;
 					labelByteLength += labels[i].desc.length;
 				}
-				newDBLength += labelByteLength;
+				newDBLength += labelByteLength + 2; // the new databuffer will include the actual data, along with 2 bytes for the marker
 
-				const newDB = new ArrayBuffer(newDBLength);
+				const newDB = new ArrayBuffer(newDBLength); // the new image content
 				const newDBView = new Uint8Array(newDB);
-				newDBView.set(new Uint8Array(dataBuffer, 0, 2), 0);
+				newDBView.set(new Uint8Array(dataBuffer, 0, 2), 0); // begin by copying the SOI bytes (should be FFD8 I believe)
 
 				writeShort(newDBView, 2, LABEL_MARKER);
 				writeShort(newDBView, 4, labelByteLength);
-				writeShort(newDBView, 6, labels.length);
-				let nbI = 8; // new dataBuffer index
+				writeShort(newDBView, 6, CHECK_CODE);
+				writeShort(newDBView, 8, labels.length);
+				let nbI = 10; // new dataBuffer index
 				for (var i = 0; i < labels.length; i++) {
 					let label = labels[i];
 					newDBView[nbI] = label.header.length;
@@ -552,16 +559,18 @@
 					nbI += 11 + label.header.length + label.desc.length;
 				}
 
-				if (labelIndex > 4) { // 4 is 2 jpg bytes + 2 label header bytes
-					let beforeBytes = new Uint8Array(dataBuffer, 4, labelIndex - 4);
-					newDBView.set(beforeBytes, nbI);
-					nbI += labelIndex - 4;
+				// if the old labels content was found more than 2 bytes after the start,
+				// we need to copy all the content before the labels over
+				if (labelIndex > 2) {
+					let beforeBytes = new Uint8Array(dataBuffer, 2, labelIndex - 2); // this is all the content before the labels began
+					newDBView.set(beforeBytes, nbI); // copy it in
+					nbI += labelIndex - 2; // advance the pointer
 				}
 
 				let remainingBytes = new Uint8Array(
 					dataBuffer, 
-					labelIndex + labelSize, 
-					dataBuffer.byteLength - labelIndex - labelSize
+					labelIndex + labelSize, // beginning immediately after the label content ended
+					dataBuffer.byteLength - labelIndex - labelSize // and going to the end of the old databuffer
 				);
 				newDBView.set(remainingBytes, nbI);
 
@@ -605,11 +614,17 @@
 					marker = bytesToShort(data[2], data[3]);
 					while (marker != SOS_MARKER) {
 						if (marker < ZERO_HEADERS_LOWER || marker > ZERO_HEADERS_UPPER) {
-							data = new Uint8Array(dataBuffer, bufferIndex, 2);
+							data = new Uint8Array(dataBuffer, bufferIndex, 4);
 							let size = bytesToShort(data[0], data[1]);
 
 							if (marker == LABEL_MARKER) {
-								data = new Uint8Array(dataBuffer, bufferIndex + 2, size - 2); // short included in size
+								let code = bytesToShort(data[2], data[3]);
+								if (code != CHECK_CODE) {
+									console.error("Content found under label marker that likely is NOT labels.")
+									break
+								}
+
+								data = new Uint8Array(dataBuffer, bufferIndex + 4, size - 4); // short included in size
 								let numLabels = bytesToShort(data[0], data[1]);
 								let index = 2;
 								for (var i = 0; i < numLabels; i++) {
@@ -667,7 +682,7 @@
 				}
 				defaultSize = {w: displayImg.naturalWidth * 0.05, h: displayImg.naturalHeight * 0.05};
 				canDisplay = false;
-				let domLabels = imgWrapper.getElementsByClassName("label");
+				let domLabels = imgWrapper.getElementsByClassName("group");
 				while (domLabels[0]) {
 					domLabels[0].parentNode.removeChild(domLabels[0]);
 				}
@@ -732,6 +747,7 @@
 				let newLabel = createLabel(labels.length - 1);
 				imgWrapper.appendChild(newLabel);
 				selectLabel(newLabel, null);
+				moveOffset = {x: 0, y: 0};
 				selectButton(moveButton);
 			};
 
@@ -810,14 +826,20 @@
 
 			let resizeAnchor = null;
 			let moveOffset = null;
-			imgWrapper.onmousemove = event => {
+			document.onmousemove = handleMousemove;
+			function handleMousemove(event) {
+				if (selectedLabel == null) {
+					return;
+				}
+
 				let imgBox = imgWrapper.getBoundingClientRect();
+				let labelBox = selectedLabel.getBoundingClientRect();
 				let mx = event.clientX - imgBox.left;
 				let my = event.clientY - imgBox.top;
 
-				if (selectedLabel != null && selectedButton == moveButton) {
+				if (selectedButton == moveButton) {
+					resizeAnchor = null
 					if (moveOffset == null) {
-						let labelBox = selectedLabel.getBoundingClientRect();
 						moveOffset = {
 							x: labelBox.left - imgBox.left - mx,
 							y: labelBox.top - imgBox.top - my
@@ -829,11 +851,11 @@
 
 				mx = Math.max(0, mx);
 				my = Math.max(0, my);
-				mx = Math.min(mx, imgWrapper.offsetWidth);
-				my = Math.min(my, imgWrapper.offsetHeight);
 
-				if (selectedLabel != null && selectedButton == moveButton) {
+				if (selectedButton == moveButton) {
 
+					mx = Math.min(mx, imgWrapper.offsetWidth - labelBox.width);
+					my = Math.min(my, imgWrapper.offsetHeight - labelBox.height);
 					let percentX = mx / imgWrapper.offsetWidth * 100;
 					let percentY = my / imgWrapper.offsetHeight * 100;
 					selectedLabel.style.left = percentX.toString() + "%";
@@ -841,10 +863,11 @@
 					labels[parseInt(selectedLabel.id)].x = percentX / 100 * displayImg.naturalWidth;
 					labels[parseInt(selectedLabel.id)].y = percentY / 100 * displayImg.naturalHeight;
 
-				} else if (selectedLabel != null && selectedButton == resizeButton) {
+				} else if (selectedButton == resizeButton) {
 
+					mx = Math.min(mx, imgWrapper.offsetWidth);
+					my = Math.min(my, imgWrapper.offsetHeight);
 					if (resizeAnchor == null) {
-						let labelBox = selectedLabel.getBoundingClientRect();
 						resizeAnchor = {
 							x: labelBox.left - imgBox.left,
 							y: labelBox.top - imgBox.top
